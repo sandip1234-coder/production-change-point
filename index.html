@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3PC Cooling Change-Point Model</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f4f8;color:#2d3748;line-height:1.6}
+header{background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;padding:1.75rem 2rem;text-align:center}
+header h1{font-size:1.7rem;margin-bottom:.2rem}
+header p{opacity:.82;font-size:.92rem}
+header sub{font-size:.8em}
+.container{max-width:1200px;margin:0 auto;padding:1.4rem}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:1.4rem;margin-bottom:1.4rem}
+.card h2{font-size:1.05rem;color:#2b6cb0;margin-bottom:1rem;padding-bottom:.45rem;border-bottom:2px solid #ebf8ff}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+@media(max-width:700px){.cfg-grid{grid-template-columns:1fr}}
+.drop-zone{border:2px dashed #90cdf4;border-radius:8px;padding:2rem 1.5rem;text-align:center;cursor:pointer;background:#ebf8ff;transition:all .2s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#2b6cb0;background:#dbeafe}
+.drop-zone input[type=file]{display:none}
+.drop-icon{font-size:2.4rem;margin-bottom:.4rem}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.fg{margin-bottom:.85rem}
+.fg label{display:block;font-size:.8rem;font-weight:600;color:#4a5568;margin-bottom:.2rem}
+input[type=number],input[type=text]{width:100%;padding:.45rem .7rem;border:1px solid #e2e8f0;border-radius:6px;font-size:.88rem;color:#2d3748;background:#f7fafc;transition:border-color .2s}
+input:focus{outline:none;border-color:#2b6cb0;background:#fff}
+.cb-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.85rem}
+.cb-row input[type=checkbox]{width:auto;cursor:pointer}
+.cb-row label{font-size:.85rem;font-weight:600;color:#4a5568;cursor:pointer;margin:0}
+.btn-run{display:block;width:100%;padding:.65rem;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .2s}
+.btn-run:hover{background:#2c5282}
+.btn-run:disabled{background:#a0aec0;cursor:not-allowed}
+.status{padding:.65rem 1rem;border-radius:6px;font-size:.88rem;margin-bottom:1.2rem;display:none}
+.status.info{background:#ebf8ff;border:1px solid #90cdf4;color:#2b6cb0;display:block}
+.status.ok{background:#f0fff4;border:1px solid #9ae6b4;color:#276749;display:block}
+.status.err{background:#fff5f5;border:1px solid #feb2b2;color:#c53030;display:block}
+.preview-wrap{margin-top:.9rem;display:none}
+.preview-wrap .lbl{font-size:.8rem;font-weight:600;color:#4a5568;margin-bottom:.3rem}
+.scroll-box{max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#2b6cb0;color:#fff;padding:.5rem .65rem;text-align:left;white-space:nowrap}
+td{padding:.42rem .65rem;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+tr:nth-child(even) td{background:#f7fafc}
+tr:hover td{background:#ebf8ff}
+.eq-box{background:#fffaf0;border:1px solid #fbd38d;border-radius:6px;padding:.9rem 1rem;font-family:monospace;font-size:.95rem;color:#744210;text-align:center;margin-bottom:1rem;word-break:break-all}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:.9rem}
+.param-card{background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;padding:.75rem 1rem}
+.param-card .pname{font-size:.75rem;font-weight:700;color:#276749;margin-bottom:.15rem}
+.param-card .pval{font-size:1.05rem;font-weight:700;color:#22543d;font-family:monospace}
+.param-card .punit{font-size:.72rem;color:#48bb78;margin-top:.1rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.85rem}
+.met-card{background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.85rem;text-align:center}
+.met-card .mval{font-size:1.3rem;font-weight:700;color:#2b6cb0}
+.met-card .mlbl{font-size:.72rem;color:#718096;margin-top:.15rem}
+.bkd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:600px){.bkd-grid{grid-template-columns:1fr}}
+.bkd-item{text-align:center;padding:.9rem;border-radius:8px}
+.bkd-item.base{background:#ebf8ff;border:1px solid #90cdf4}
+.bkd-item.wx{background:#fff5f5;border:1px solid #feb2b2}
+.bkd-item.prod{background:#f0fff4;border:1px solid #9ae6b4}
+.bkd-item .bpct{font-size:1.5rem;font-weight:700}
+.bkd-item .bkwh{font-size:.8rem;color:#4a5568;margin:.15rem 0}
+.bkd-item .bname{font-size:.72rem;font-weight:600}
+.base .bpct{color:#2b6cb0}
+.wx .bpct{color:#c53030}
+.prod .bpct{color:#276749}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.4rem}
+@media(max-width:850px){.chart-grid{grid-template-columns:1fr}}
+.chart-box{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:.9rem}
+.scroll-x{overflow-x:auto}
+.hidden{display:none!important}
+.fname{margin-top:.6rem;font-size:.82rem;color:#4a5568}
+.fmt-note{font-size:.78rem;color:#718096;margin-top:.6rem;line-height:1.5}
+.fmt-note code{background:#edf2f7;padding:.1rem .3rem;border-radius:3px;font-size:.75rem}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ 3-Parameter Cooling Change-Point Model</h1>
+  <p>Multivariate &nbsp;·&nbsp; E<sub>d</sub> = a + b · max(T − T<sub>b</sub>, 0) + C · P</p>
+</header>
+
+<div class="container">
+
+  <div id="statusBar" class="status"></div>
+
+  <!-- ── CONFIG ── -->
+  <div class="card">
+    <h2>📂 Data &amp; Configuration</h2>
+    <div class="cfg-grid">
+
+      <!-- Upload -->
+      <div>
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-icon">📊</div>
+          <div><strong>Drop your CSV file here</strong></div>
+          <div style="font-size:.82rem;color:#718096;margin:.4rem 0">or</div>
+          <label style="display:inline-block;background:#2b6cb0;color:#fff;padding:.4rem 1.1rem;border-radius:6px;cursor:pointer;font-size:.88rem;font-weight:600">
+            Browse File
+            <input type="file" id="fileInput" accept=".csv">
+          </label>
+          <div class="fname" id="fileName"></div>
+        </div>
+        <div class="preview-wrap" id="previewWrap">
+          <div class="lbl">Data preview (first 5 rows)</div>
+          <div class="scroll-box"><table id="previewTable"></table></div>
+        </div>
+        <div class="fmt-note">
+          Expected CSV columns (by index or name):<br>
+          <code>Temp</code>&nbsp; <code>Production</code>&nbsp; <code>Energy (kWh/month)</code><br>
+          One row per month; data wraps every 12 months automatically.
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div>
+        <div class="field-row">
+          <div class="fg">
+            <label>Temperature column</label>
+            <input type="text" id="tempCol" value="1" placeholder="1 or Temp">
+          </div>
+          <div class="fg">
+            <label>Production column</label>
+            <input type="text" id="prodCol" value="2" placeholder="2 or Production">
+          </div>
+          <div class="fg">
+            <label>Energy column (kWh/month)</label>
+            <input type="text" id="energyCol" value="3" placeholder="3 or Energy">
+          </div>
+          <div class="fg">
+            <label>Year (for days/month)</label>
+            <input type="number" id="yearInput" value="2025" min="2000" max="2100">
+          </div>
+          <div class="fg">
+            <label>Min side points (each side of T<sub>b</sub>)</label>
+            <input type="number" id="minSide" value="1" min="1" max="20">
+          </div>
+        </div>
+        <div class="cb-row">
+          <input type="checkbox" id="posSlope" checked>
+          <label for="posSlope">Enforce positive slope (b ≥ 0)</label>
+        </div>
+        <button class="btn-run" id="runBtn" disabled>▶&nbsp; Run Analysis</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RESULTS ── -->
+  <div id="resultsSection" class="hidden">
+
+    <div class="card">
+      <h2>📐 Model Parameters</h2>
+      <div class="eq-box" id="eqBox"></div>
+      <div class="params-grid" id="paramsGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Goodness-of-Fit Metrics</h2>
+      <div class="metrics-grid" id="metricsGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>⚡ Annual Energy Breakdown</h2>
+      <div class="bkd-grid" id="bkdGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>📅 Monthly Energy Breakdown</h2>
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th><th>Days</th>
+              <th>Actual kWh/d</th><th>Modeled kWh/d</th>
+              <th>Base kWh</th><th>Weather kWh</th><th>Prod kWh</th>
+              <th>Model kWh</th><th>Actual kWh</th>
+            </tr>
+          </thead>
+          <tbody id="monthTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-box"><div id="ch1" style="height:350px"></div></div>
+      <div class="chart-box"><div id="ch2" style="height:350px"></div></div>
+      <div class="chart-box"><div id="ch3" style="height:350px"></div></div>
+      <div class="chart-box"><div id="ch4" style="height:350px"></div></div>
+    </div>
+
+  </div><!-- /resultsSection -->
+
+</div><!-- /container -->
+
+<script>
+// ══════════════════════════════════════════════
+//  MATH UTILITIES
+// ══════════════════════════════════════════════
+function eomday(year, month) {
+  // month is 1-based; returns days in that month
+  return new Date(year, month, 0).getDate();
+}
+
+function gaussElim(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let maxR = col;
+    for (let r = col + 1; r < n; r++)
+      if (Math.abs(M[r][col]) > Math.abs(M[maxR][col])) maxR = r;
+    [M[col], M[maxR]] = [M[maxR], M[col]];
+    const piv = M[col][col];
+    if (Math.abs(piv) < 1e-14) continue;
+    for (let r = col + 1; r < n; r++) {
+      const f = M[r][col] / piv;
+      for (let k = col; k <= n; k++) M[r][k] -= f * M[col][k];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i][n];
+    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
+    x[i] = Math.abs(M[i][i]) < 1e-14 ? 0 : s / M[i][i];
+  }
+  return x;
+}
+
+function leastSquares(X, y) {
+  // Normal equations: θ = (X'X)^{-1} X'y
+  const m = X[0].length, n = y.length;
+  const XtX = Array.from({length:m}, (_, i) =>
+    Array.from({length:m}, (_, j) =>
+      X.reduce((s, row) => s + row[i]*row[j], 0)));
+  const Xty = Array.from({length:m}, (_, i) =>
+    X.reduce((s, row, k) => s + row[i]*y[k], 0));
+  return gaussElim(XtX, Xty);
+}
+
+// ══════════════════════════════════════════════
+//  3PC COOLING + PRODUCTION FIT
+//  Matches MATLAB fit3PC_cooling_with_prod
+// ══════════════════════════════════════════════
+function fit3PC(T, P, E, enforcePosSlope, minSidePoints) {
+  const n = T.length;
+  // sort ascending by T
+  const si = [...Array(n).keys()].sort((a, b) => T[a] - T[b]);
+  const Ts = si.map(i => T[i]);
+  const Ps = si.map(i => P[i]);
+  const Es = si.map(i => E[i]);
+
+  const Tcand = [...new Set(Ts)].sort((a, b) => a - b);
+  if (Tcand.length < 3)
+    throw new Error('Need at least 3 unique temperature values to estimate T_b.');
+
+  let bestSSE = Infinity, bestParams = null, bestTb = NaN, bestEhat = null;
+
+  for (let k = 1; k < Tcand.length - 1; k++) {
+    const Tb = Tcand[k];
+    const nBelow = Ts.filter(t => t <= Tb).length;
+    const nAbove = Ts.filter(t => t >  Tb).length;
+    if (nBelow < minSidePoints || nAbove < minSidePoints) continue;
+
+    const h = Ts.map(t => Math.max(0, t - Tb));
+    const X = Ts.map((_, i) => [1, h[i], Ps[i]]);
+    const th = leastSquares(X, Es);
+    const [a, b, C] = th;
+
+    if (enforcePosSlope && b < 0) continue;
+
+    const Ehat_s = X.map((row, i) => a + b*row[1] + C*row[2]);
+    const SSE = Es.reduce((s, e, i) => s + (e - Ehat_s[i])**2, 0);
+
+    if (SSE < bestSSE) {
+      bestSSE = SSE;
+      bestParams = [a, b, C];
+      bestTb = Tb;
+      const tmp = new Array(n);
+      si.forEach((origIdx, si_) => { tmp[origIdx] = Ehat_s[si_]; });
+      bestEhat = tmp;
+    }
+  }
+
+  if (!isFinite(bestSSE))
+    throw new Error('Fit failed: no valid T_b found. Try lowering "Min side points" or unchecking "Enforce positive slope".');
+
+  return { params: bestParams, SSE: bestSSE, Ehat: bestEhat, Tb: bestTb };
+}
+
+// ══════════════════════════════════════════════
+//  CSV COLUMN HELPER
+// ══════════════════════════════════════════════
+function getCol(data, headers, key) {
+  const ks = String(key).trim();
+  const num = parseInt(ks, 10);
+  if (!isNaN(num) && String(num) === ks) {
+    if (num < 1 || num > headers.length)
+      throw new Error(`Column index ${num} out of range (1–${headers.length}).`);
+    return data.map(r => parseFloat(r[headers[num-1]]));
+  }
+  if (!headers.includes(ks))
+    throw new Error(`Column "${ks}" not found. Available: ${headers.join(', ')}`);
+  return data.map(r => parseFloat(r[ks]));
+}
+
+// ══════════════════════════════════════════════
+//  GLOBAL STATE
+// ══════════════════════════════════════════════
+let csvData = null, csvHeaders = null;
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ══════════════════════════════════════════════
+//  STATUS
+// ══════════════════════════════════════════════
+function setStatus(msg, type='info') {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+// ══════════════════════════════════════════════
+//  FILE HANDLING
+// ══════════════════════════════════════════════
+function handleFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.csv')) {
+    setStatus('Please select a .csv file.', 'err'); return;
+  }
+  document.getElementById('fileName').textContent = '📄 ' + file.name;
+  setStatus('Reading ' + file.name + ' …', 'info');
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+    complete(res) {
+      if (res.errors.length) { setStatus('CSV error: ' + res.errors[0].message, 'err'); return; }
+      csvData    = res.data;
+      csvHeaders = res.meta.fields;
+      setStatus(`✓ Loaded ${csvData.length} rows · ${csvHeaders.length} columns: ${csvHeaders.join(', ')}`, 'ok');
+      buildPreview(csvData, csvHeaders);
+      document.getElementById('previewWrap').style.display = 'block';
+      document.getElementById('runBtn').disabled = false;
+    },
+    error(e) { setStatus('Read error: ' + e.message, 'err'); }
+  });
+}
+
+function buildPreview(data, headers) {
+  const rows = data.slice(0, 5);
+  let html = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r => {
+    html += '<tr>' + headers.map(h => `<td>${r[h] ?? ''}</td>`).join('') + '</tr>';
+  });
+  document.getElementById('previewTable').innerHTML = html + '</tbody>';
+}
+
+// ══════════════════════════════════════════════
+//  MAIN ANALYSIS
+// ══════════════════════════════════════════════
+function runAnalysis() {
+  if (!csvData) { setStatus('No data loaded.', 'err'); return; }
+  setStatus('Running analysis …', 'info');
+
+  try {
+    const tempKey = document.getElementById('tempCol').value;
+    const prodKey = document.getElementById('prodCol').value;
+    const enKey   = document.getElementById('energyCol').value;
+    const year    = parseInt(document.getElementById('yearInput').value, 10);
+    const minSide = parseInt(document.getElementById('minSide').value, 10);
+    const posSlp  = document.getElementById('posSlope').checked;
+
+    // Raw columns
+    const T_raw = getCol(csvData, csvHeaders, tempKey);
+    const P_raw = getCol(csvData, csvHeaders, prodKey);
+    const E_raw = getCol(csvData, csvHeaders, enKey);
+    const nRows = E_raw.length;
+
+    // Month indices (1-based, cycling every 12)
+    const mIdx  = Array.from({length: nRows}, (_, i) => (i % 12) + 1);
+    const nDays = mIdx.map(m => eomday(year, m));
+
+    // Normalize energy to daily; production is NOT normalized (matches MATLAB)
+    const E_norm = E_raw.map((e, i) => e / nDays[i]);
+    const P      = P_raw;
+
+    // Filter finite rows
+    const mask = T_raw.map((t, i) =>
+      isFinite(t) && isFinite(P[i]) && isFinite(E_norm[i]) && isFinite(nDays[i]));
+
+    const T    = T_raw.filter((_, i) => mask[i]);
+    const Pf   = P.filter((_, i) => mask[i]);
+    const E    = E_norm.filter((_, i) => mask[i]);
+    const nD   = nDays.filter((_, i) => mask[i]);
+    const mIdxF= mIdx.filter((_, i) => mask[i]);
+    const n    = E.length;
+    if (n < 4) throw new Error('Need at least 4 valid data rows after filtering.');
+
+    // ── FIT ──
+    const { params, SSE, Ehat, Tb } = fit3PC(T, Pf, E, posSlp, minSide);
+    const [a, b, C] = params;
+
+    // ── METRICS ──
+    const p    = 4;
+    const dof  = Math.max(n - p, 1);
+    const RMSE = Math.sqrt(SSE / dof);
+    const Ebar = E.reduce((s, e) => s + e, 0) / n;
+    const SST  = E.reduce((s, e) => s + (e - Ebar)**2, 0);
+    const R2   = 1 - SSE / SST;
+    const CVRMSE = RMSE / Ebar * 100;
+    const NMBE   = 100 * E.reduce((s, e, i) => s + e - Ehat[i], 0) / (dof * Ebar);
+
+    // ── BREAKDOWNS ──
+    const h       = T.map(t => Math.max(0, t - Tb));
+    const Ed_base = E.map(_ => a);
+    const Ed_wx   = h.map(hi => b * hi);
+    const Ed_prod = Pf.map(pi => C * pi);
+    const Ed_mod  = E.map((_, i) => Ed_base[i] + Ed_wx[i] + Ed_prod[i]);
+
+    const Em_base = Ed_base.map((v, i) => v * nD[i]);
+    const Em_wx   = Ed_wx.map((v, i) => v * nD[i]);
+    const Em_prod = Ed_prod.map((v, i) => v * nD[i]);
+    const Em_mod  = Ed_mod.map((v, i) => v * nD[i]);
+    const Em_act  = E.map((v, i) => v * nD[i]);
+
+    const sum = arr => arr.reduce((s, v) => s + v, 0);
+    const TotBase = sum(Em_base), TotWx = sum(Em_wx), TotProd = sum(Em_prod);
+    const TotMod  = sum(Em_mod),  TotAct = sum(Em_act), TotDays = sum(nD);
+    const pBase = 100*TotBase/TotMod, pWx = 100*TotWx/TotMod, pProd = 100*TotProd/TotMod;
+    const annF  = 365 / TotDays;
+
+    // ── RENDER ──
+    renderParams(a, b, Tb, C);
+    renderMetrics(SSE, RMSE, CVRMSE, NMBE, R2, n, dof);
+    renderBreakdown(pBase, pWx, pProd, TotBase, TotWx, TotProd, annF);
+    renderTable(mIdxF, nD, E, Ed_mod, Em_base, Em_wx, Em_prod, Em_mod, Em_act);
+    renderCharts({
+      T, Pf, E, Ehat, Ed_mod, mIdxF, nD,
+      a, b, C, Tb,
+      Em_base, Em_wx, Em_prod, Em_mod, Em_act,
+      pBase, pWx, pProd,
+      TotBase, TotWx, TotProd, annF,
+      CVRMSE, NMBE, R2
+    });
+
+    document.getElementById('resultsSection').classList.remove('hidden');
+    setStatus(`✓ Done — R² = ${R2.toFixed(4)} · CVRMSE = ${CVRMSE.toFixed(2)}% · NMBE = ${NMBE.toFixed(2)}%`, 'ok');
+    document.getElementById('resultsSection').scrollIntoView({behavior:'smooth'});
+
+  } catch(err) {
+    setStatus('❌ ' + err.message, 'err');
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════════
+function renderParams(a, b, Tb, C) {
+  document.getElementById('eqBox').innerHTML =
+    `E<sub>d</sub> = ${a.toFixed(6)} + ${b.toFixed(6)} · max(T − ${Tb.toFixed(4)}, 0) + ${C.toFixed(8)} · P`;
+  document.getElementById('paramsGrid').innerHTML = [
+    {n:'a &nbsp;(base / intercept)',  v:a.toFixed(6), u:'kWh / day'},
+    {n:'b &nbsp;(slope)',             v:b.toFixed(6), u:'kWh / day / °'},
+    {n:'T<sub>b</sub> (change-point)',v:Tb.toFixed(6),u:'°'},
+    {n:'C &nbsp;(production coeff)',  v:C.toFixed(8), u:'kWh / unit'},
+  ].map(p =>
+    `<div class="param-card">
+       <div class="pname">${p.n}</div>
+       <div class="pval">${p.v}</div>
+       <div class="punit">${p.u}</div>
+     </div>`
+  ).join('');
+}
+
+function renderMetrics(SSE, RMSE, CVRMSE, NMBE, R2, n, dof) {
+  document.getElementById('metricsGrid').innerHTML = [
+    {v: R2.toFixed(4),          l: 'R²'},
+    {v: CVRMSE.toFixed(2)+'%',  l: 'CV(RMSE)'},
+    {v: NMBE.toFixed(2)+'%',    l: 'NMBE'},
+    {v: RMSE.toFixed(4),        l: 'RMSE (kWh/d)'},
+    {v: SSE.toFixed(4),         l: 'SSE'},
+    {v: n,                      l: 'n (data pts)'},
+    {v: dof,                    l: 'DoF (n−4)'},
+  ].map(m =>
+    `<div class="met-card"><div class="mval">${m.v}</div><div class="mlbl">${m.l}</div></div>`
+  ).join('');
+}
+
+function renderBreakdown(pBase, pWx, pProd, TotBase, TotWx, TotProd, annF) {
+  document.getElementById('bkdGrid').innerHTML = `
+    <div class="bkd-item base">
+      <div class="bpct">${pBase.toFixed(1)}%</div>
+      <div class="bkwh">${(TotBase*annF).toFixed(0)} kWh / yr (annualized)</div>
+      <div class="bname">Weather-Independent (Base)</div>
+    </div>
+    <div class="bkd-item wx">
+      <div class="bpct">${pWx.toFixed(1)}%</div>
+      <div class="bkwh">${(TotWx*annF).toFixed(0)} kWh / yr</div>
+      <div class="bname">Weather-Dependent (Cooling)</div>
+    </div>
+    <div class="bkd-item prod">
+      <div class="bpct">${pProd.toFixed(1)}%</div>
+      <div class="bkwh">${(TotProd*annF).toFixed(0)} kWh / yr</div>
+      <div class="bname">Production-Dependent</div>
+    </div>`;
+}
+
+function renderTable(mIdxF, nD, E, Ed_mod, Em_base, Em_wx, Em_prod, Em_mod, Em_act) {
+  document.getElementById('monthTbody').innerHTML = mIdxF.map((mi, i) =>
+    `<tr>
+       <td>${MN[mi-1]}</td><td>${nD[i]}</td>
+       <td>${E[i].toFixed(2)}</td><td>${Ed_mod[i].toFixed(2)}</td>
+       <td>${Em_base[i].toFixed(1)}</td><td>${Em_wx[i].toFixed(1)}</td>
+       <td>${Em_prod[i].toFixed(1)}</td><td>${Em_mod[i].toFixed(1)}</td>
+       <td>${Em_act[i].toFixed(1)}</td>
+     </tr>`
+  ).join('');
+}
+
+// ══════════════════════════════════════════════
+//  PLOTLY CHARTS  (4 charts = 4 MATLAB figures)
+// ══════════════════════════════════════════════
+function renderCharts(d) {
+  const {T, Pf, E, Ehat, Ed_mod, mIdxF, nD,
+         a, b, C, Tb,
+         Em_base, Em_wx, Em_prod, Em_mod, Em_act,
+         pBase, pWx, pProd,
+         TotBase, TotWx, TotProd, annF,
+         CVRMSE, NMBE, R2} = d;
+
+  const labels = mIdxF.map(mi => MN[mi-1]);
+  const base_cfg = {
+    margin:{l:58,r:18,t:45,b:55},
+    font:{size:11},
+    paper_bgcolor:'white',
+    plot_bgcolor:'#f9fafb',
+    legend:{font:{size:10}},
+  };
+
+  // ── Chart 1: Actual vs Modeled daily energy ──
+  Plotly.newPlot('ch1', [
+    {x:labels, y:E,    name:'Actual',
+     mode:'markers+lines', type:'scatter',
+     marker:{size:8, color:'#2b6cb0'},
+     line:{dash:'dot', color:'#2b6cb0', width:1.5}},
+    {x:labels, y:Ehat, name:'Modeled',
+     mode:'lines', type:'scatter',
+     line:{color:'#e53e3e', width:2.5}}
+  ], {
+    ...base_cfg,
+    title:{text:'Actual vs Modeled Daily Energy', font:{size:13}},
+    xaxis:{title:'Month'},
+    yaxis:{title:'Energy (kWh/day)'},
+    annotations:[{
+      xref:'paper',yref:'paper',x:.02,y:.98,
+      text:`CV(RMSE)=${CVRMSE.toFixed(2)}%  NMBE=${NMBE.toFixed(2)}%  R²=${R2.toFixed(3)}`,
+      showarrow:false,bgcolor:'rgba(255,255,255,.85)',
+      bordercolor:'#ccc',borderwidth:1,font:{size:10}
+    }]
+  }, {responsive:true});
+
+  // ── Chart 2: E vs T + fitted lines ──
+  const Pmin  = Math.min(...Pf), Pmean = Pf.reduce((s,v)=>s+v,0)/Pf.length, Pmax = Math.max(...Pf);
+  const Tmin  = Math.min(...T),  Tmax  = Math.max(...T);
+  const Tl    = Array.from({length:300}, (_,i) => Tmin + (Tmax-Tmin)*i/299);
+  const fitLine = Pval => Tl.map(t => a + b*Math.max(0,t-Tb) + C*Pval);
+
+  Plotly.newPlot('ch2', [
+    {x:Tl, y:fitLine(Pmin),  name:`P_min = ${Pmin.toFixed(2)}`,
+     mode:'lines', line:{dash:'dash',color:'#276749',width:1.8}},
+    {x:Tl, y:fitLine(Pmean), name:`P_mean = ${Pmean.toFixed(2)}`,
+     mode:'lines', line:{color:'#2b6cb0',width:2.2}},
+    {x:Tl, y:fitLine(Pmax),  name:`P_max = ${Pmax.toFixed(2)}`,
+     mode:'lines', line:{dash:'dash',color:'#c53030',width:1.8}},
+    {x:T,  y:E, text:labels, textposition:'top right',
+     textfont:{size:9,color:'#333'},
+     mode:'markers+text', type:'scatter',
+     marker:{symbol:'diamond',size:9,color:'#1a202c',opacity:.82},
+     name:'Data (monthly ◆)'}
+  ], {
+    ...base_cfg,
+    title:{text:`Daily Energy vs Temperature  |  E = ${a.toFixed(3)} + ${b.toFixed(3)}(T−${Tb.toFixed(2)})<sub>+</sub> + ${C.toFixed(5)}·P`, font:{size:11}},
+    xaxis:{title:'Temperature', zeroline:false},
+    yaxis:{title:'Energy (kWh/day)'},
+    shapes:[{type:'line',x0:Tb,x1:Tb,y0:0,y1:1,yref:'paper',
+             line:{dash:'dash',color:'black',width:1.5}}],
+    annotations:[{x:Tb,y:.96,yref:'paper',
+      text:`T_b = ${Tb.toFixed(2)}`,showarrow:false,
+      bgcolor:'rgba(255,255,255,.85)',bordercolor:'#aaa',borderwidth:1,font:{size:10}}]
+  }, {responsive:true});
+
+  // ── Chart 3: Stacked monthly bar ──
+  Plotly.newPlot('ch3', [
+    {x:labels, y:Em_base, name:'Base (independent)',     type:'bar', marker:{color:'#90cdf4'}},
+    {x:labels, y:Em_wx,   name:'Weather-dependent',      type:'bar', marker:{color:'#fc8181'}},
+    {x:labels, y:Em_prod, name:'Production-dependent',   type:'bar', marker:{color:'#68d391'}},
+    {x:labels, y:Em_act,  name:'Actual',
+     mode:'markers+lines', type:'scatter',
+     marker:{color:'#1a202c',size:8}, line:{color:'#1a202c',width:1.5}}
+  ], {
+    ...base_cfg,
+    barmode:'stack',
+    title:{text:`Monthly Energy Breakdown  —  Base ${pBase.toFixed(1)}% | Weather ${pWx.toFixed(1)}% | Prod ${pProd.toFixed(1)}%`, font:{size:11}},
+    xaxis:{title:'Month'},
+    yaxis:{title:'Energy (kWh/month)'}
+  }, {responsive:true});
+
+  // ── Chart 4: Pie / donut ──
+  const comps = [TotBase, TotWx, TotProd];
+  const cnames = ['Base (weather-indep.)','Weather-dependent','Production-dep.'];
+  const colors = ['#63b3ed','#fc8181','#68d391'];
+  const validIdx = comps.map((_,i)=>i).filter(i => comps[i] > 0);
+  const annTotal = validIdx.reduce((s,i) => s + comps[i]*annF, 0);
+
+  Plotly.newPlot('ch4', [{
+    type:'pie', hole:.32,
+    labels: validIdx.map(i => cnames[i]),
+    values: validIdx.map(i => comps[i]),
+    marker:{colors: validIdx.map(i => colors[i])},
+    text: validIdx.map(i => `${(100*comps[i]/comps.reduce((s,v)=>s+v,0)).toFixed(1)}%<br>${(comps[i]*annF).toFixed(0)} kWh/yr`),
+    textinfo:'text',
+    hovertemplate:'<b>%{label}</b><br>%{percent:.1%}<extra></extra>'
+  }], {
+    ...base_cfg,
+    title:{text:`Annual Energy Breakdown  (modeled ≈ ${annTotal.toFixed(0)} kWh/yr)`, font:{size:12}},
+    showlegend:true,
+    legend:{orientation:'v', x:.6, y:.5}
+  }, {responsive:true});
+}
+
+// ══════════════════════════════════════════════
+//  EVENT WIRING
+// ══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const dz  = document.getElementById('dropZone');
+  const fi  = document.getElementById('fileInput');
+  const btn = document.getElementById('runBtn');
+
+  fi.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  dz.addEventListener('click', e => {
+    if(e.target.tagName !== 'LABEL' && e.target.tagName !== 'INPUT') fi.click();
+  });
+
+  btn.addEventListener('click', runAnalysis);
+});
+</script>
+</body>
+</html>
